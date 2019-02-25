@@ -31,9 +31,9 @@
 use io::{self, Error, ErrorKind};
 
 #[stable(feature = "rust1", since = "1.0.0")]
-pub use core::net::{IpAddr, Ipv4Addr, Ipv6Addr, Ipv6MulticastScope, AddrParseError};
+pub use core::net::{IpAddr, Ipv4Addr, Ipv6Addr, Ipv6MulticastScope, AddrParseError, SocketAddr, SocketAddrV4, SocketAddrV6};
 #[stable(feature = "rust1", since = "1.0.0")]
-pub use self::addr::{SocketAddr, SocketAddrV4, SocketAddrV6, ToSocketAddrs};
+pub use self::addr::ToSocketAddrs;
 #[stable(feature = "rust1", since = "1.0.0")]
 pub use self::tcp::{TcpStream, TcpListener, Incoming};
 #[stable(feature = "rust1", since = "1.0.0")]
