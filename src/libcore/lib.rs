@@ -125,6 +125,7 @@
 #![feature(maybe_uninit, maybe_uninit_slice, maybe_uninit_array)]
 #![feature(unrestricted_attribute_tokens)]
 #![feature(external_doc)]
+#![feature(slice_patterns)]
 
 #[prelude_import]
 #[allow(unused)]
@@ -209,10 +210,12 @@ pub mod fmt;
 pub mod time;
 
 pub mod unicode;
+pub mod net;
 
 /* Async */
 pub mod future;
 pub mod task;
+
 
 /* Heap memory allocator trait */
 #[allow(missing_docs)]

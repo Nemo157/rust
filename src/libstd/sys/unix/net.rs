@@ -2,7 +2,7 @@ use ffi::CStr;
 use io;
 use libc::{self, c_int, c_void, size_t, sockaddr, socklen_t, EAI_SYSTEM, MSG_PEEK};
 use mem;
-use net::{SocketAddr, Shutdown};
+use net::{SocketAddr, Shutdown, Ipv4Addr, Ipv6Addr};
 use str;
 use sys::fd::FileDesc;
 use sys_common::{AsInner, FromInner, IntoInner};
@@ -356,6 +356,14 @@ impl FromInner<c_int> for Socket {
 
 impl IntoInner<c_int> for Socket {
     fn into_inner(self) -> c_int { self.0.into_raw() }
+}
+
+impl IntoInner<libc::in_addr> for Ipv4Addr {
+    fn into_inner(self) -> libc::in_addr { libc::in_addr { s_addr: self.into() } }
+}
+
+impl IntoInner<libc::in6_addr> for Ipv6Addr {
+    fn into_inner(self) -> libc::in6_addr { libc::in6_addr { s6_addr: self.octets() } }
 }
 
 // In versions of glibc prior to 2.26, there's a bug where the DNS resolver

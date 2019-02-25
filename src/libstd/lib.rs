@@ -264,6 +264,7 @@
 #![feature(hashmap_internals)]
 #![feature(int_error_internals)]
 #![feature(integer_atomics)]
+#![feature(ip)]
 #![feature(lang_items)]
 #![feature(libc)]
 #![feature(link_args)]

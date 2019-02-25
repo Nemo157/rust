@@ -5,7 +5,7 @@ use mem;
 use net::{ntoh, hton, IpAddr, Ipv4Addr, Ipv6Addr};
 use option;
 use sys::net::netc as c;
-use sys_common::{FromInner, AsInner, IntoInner};
+use sys_common::{FromInner, IntoInner};
 use sys_common::net::LookupHost;
 use vec;
 use iter;
@@ -278,7 +278,7 @@ impl SocketAddrV4 {
             inner: c::sockaddr_in {
                 sin_family: c::AF_INET as c::sa_family_t,
                 sin_port: hton(port),
-                sin_addr: *ip.as_inner(),
+                sin_addr: ip.into_inner(),
                 .. unsafe { mem::zeroed() }
             },
         }
@@ -314,7 +314,7 @@ impl SocketAddrV4 {
     /// ```
     #[stable(feature = "sockaddr_setters", since = "1.9.0")]
     pub fn set_ip(&mut self, new_ip: Ipv4Addr) {
-        self.inner.sin_addr = *new_ip.as_inner()
+        self.inner.sin_addr = new_ip.into_inner()
     }
 
     /// Returns the port number associated with this socket address.
@@ -373,7 +373,7 @@ impl SocketAddrV6 {
             inner: c::sockaddr_in6 {
                 sin6_family: c::AF_INET6 as c::sa_family_t,
                 sin6_port: hton(port),
-                sin6_addr: *ip.as_inner(),
+                sin6_addr: ip.into_inner(),
                 sin6_flowinfo: flowinfo,
                 sin6_scope_id: scope_id,
                 .. unsafe { mem::zeroed() }
@@ -411,7 +411,7 @@ impl SocketAddrV6 {
     /// ```
     #[stable(feature = "sockaddr_setters", since = "1.9.0")]
     pub fn set_ip(&mut self, new_ip: Ipv6Addr) {
-        self.inner.sin6_addr = *new_ip.as_inner()
+        self.inner.sin6_addr = new_ip.into_inner()
     }
 
     /// Returns the port number associated with this socket address.

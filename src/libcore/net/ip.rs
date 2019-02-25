@@ -5,9 +5,6 @@
 
 use cmp::Ordering;
 use fmt;
-use hash;
-use sys::net::netc as c;
-use sys_common::{AsInner, FromInner};
 
 /// An IP address, either IPv4 or IPv6.
 ///
@@ -74,10 +71,10 @@ pub enum IpAddr {
 /// assert_eq!("127.0.0.1".parse(), Ok(localhost));
 /// assert_eq!(localhost.is_loopback(), true);
 /// ```
-#[derive(Copy)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 #[stable(feature = "rust1", since = "1.0.0")]
 pub struct Ipv4Addr {
-    inner: c::in_addr,
+    inner: u32,
 }
 
 /// An IPv6 address.
@@ -112,10 +109,10 @@ pub struct Ipv4Addr {
 /// assert_eq!("::1".parse(), Ok(localhost));
 /// assert_eq!(localhost.is_loopback(), true);
 /// ```
-#[derive(Copy)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 #[stable(feature = "rust1", since = "1.0.0")]
 pub struct Ipv6Addr {
-    inner: c::in6_addr,
+    inner: u128,
 }
 
 #[allow(missing_docs)]
@@ -332,14 +329,9 @@ impl Ipv4Addr {
         // FIXME: should just be u32::from_be_bytes([a, b, c, d]),
         // once that method is no longer rustc_const_unstable
         Ipv4Addr {
-            inner: c::in_addr {
-                s_addr: u32::to_be(
-                    ((a as u32) << 24) |
-                    ((b as u32) << 16) |
-                    ((c as u32) <<  8) |
-                    (d as u32)
-                ),
-            }
+            inner: u32::from_be(((a as u32) << 24) + ((b as u32) << 16) + ((c as u32) << 8) + (d as u32)),
+            // TODO: min_const_fn
+            // inner: u32::from_be_bytes([a, b, c, d]),
         }
     }
 
@@ -394,8 +386,7 @@ impl Ipv4Addr {
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn octets(&self) -> [u8; 4] {
-        // This returns the order we want because s_addr is stored in big-endian.
-        self.inner.s_addr.to_ne_bytes()
+        self.inner.to_be_bytes()
     }
 
     /// Returns [`true`] for the special 'unspecified' address (0.0.0.0).
@@ -416,7 +407,7 @@ impl Ipv4Addr {
     /// ```
     #[stable(feature = "ip_shared", since = "1.12.0")]
     pub const fn is_unspecified(&self) -> bool {
-        self.inner.s_addr == 0
+        self.inner == 0
     }
 
     /// Returns [`true`] if this is a loopback address (127.0.0.0/8).
@@ -695,18 +686,6 @@ impl fmt::Debug for Ipv4Addr {
     }
 }
 
-#[stable(feature = "rust1", since = "1.0.0")]
-impl Clone for Ipv4Addr {
-    fn clone(&self) -> Ipv4Addr { *self }
-}
-
-#[stable(feature = "rust1", since = "1.0.0")]
-impl PartialEq for Ipv4Addr {
-    fn eq(&self, other: &Ipv4Addr) -> bool {
-        self.inner.s_addr == other.inner.s_addr
-    }
-}
-
 #[stable(feature = "ip_cmp", since = "1.16.0")]
 impl PartialEq<Ipv4Addr> for IpAddr {
     fn eq(&self, other: &Ipv4Addr) -> bool {
@@ -724,24 +703,6 @@ impl PartialEq<IpAddr> for Ipv4Addr {
             IpAddr::V4(v4) => self == v4,
             IpAddr::V6(_) => false,
         }
-    }
-}
-
-#[stable(feature = "rust1", since = "1.0.0")]
-impl Eq for Ipv4Addr {}
-
-#[stable(feature = "rust1", since = "1.0.0")]
-impl hash::Hash for Ipv4Addr {
-    fn hash<H: hash::Hasher>(&self, s: &mut H) {
-        // `inner` is #[repr(packed)], so we need to copy `s_addr`.
-        {self.inner.s_addr}.hash(s)
-    }
-}
-
-#[stable(feature = "rust1", since = "1.0.0")]
-impl PartialOrd for Ipv4Addr {
-    fn partial_cmp(&self, other: &Ipv4Addr) -> Option<Ordering> {
-        Some(self.cmp(other))
     }
 }
 
@@ -765,22 +726,6 @@ impl PartialOrd<IpAddr> for Ipv4Addr {
     }
 }
 
-#[stable(feature = "rust1", since = "1.0.0")]
-impl Ord for Ipv4Addr {
-    fn cmp(&self, other: &Ipv4Addr) -> Ordering {
-        u32::from_be(self.inner.s_addr).cmp(&u32::from_be(other.inner.s_addr))
-    }
-}
-
-impl AsInner<c::in_addr> for Ipv4Addr {
-    fn as_inner(&self) -> &c::in_addr { &self.inner }
-}
-impl FromInner<c::in_addr> for Ipv4Addr {
-    fn from_inner(addr: c::in_addr) -> Ipv4Addr {
-        Ipv4Addr { inner: addr }
-    }
-}
-
 #[stable(feature = "ip_u32", since = "1.1.0")]
 impl From<Ipv4Addr> for u32 {
     /// Converts an `Ipv4Addr` into a host byte order `u32`.
@@ -794,8 +739,7 @@ impl From<Ipv4Addr> for u32 {
     /// assert_eq!(0x0d0c0b0au32, u32::from(addr));
     /// ```
     fn from(ip: Ipv4Addr) -> u32 {
-        let ip = ip.octets();
-        u32::from_be_bytes(ip)
+        ip.inner
     }
 }
 
@@ -812,7 +756,7 @@ impl From<u32> for Ipv4Addr {
     /// assert_eq!(Ipv4Addr::new(13, 12, 11, 10), addr);
     /// ```
     fn from(ip: u32) -> Ipv4Addr {
-        Ipv4Addr::from(ip.to_be_bytes())
+        Ipv4Addr { inner: ip }
     }
 }
 
@@ -864,20 +808,21 @@ impl Ipv6Addr {
     pub const fn new(a: u16, b: u16, c: u16, d: u16, e: u16, f: u16,
                      g: u16, h: u16) -> Ipv6Addr {
         Ipv6Addr {
-            inner: c::in6_addr {
-                s6_addr: [
-                    (a >> 8) as u8, a as u8,
-                    (b >> 8) as u8, b as u8,
-                    (c >> 8) as u8, c as u8,
-                    (d >> 8) as u8, d as u8,
-                    (e >> 8) as u8, e as u8,
-                    (f >> 8) as u8, f as u8,
-                    (g >> 8) as u8, g as u8,
-                    (h >> 8) as u8, h as u8
-                ],
-            }
+            inner: u128::from_be(
+                   ((a as u128) << 112) + ((b as u128) << 96) + ((c as u128) << 80) + ((d as u128) << 64)
+                   + ((e as u128) << 48) + ((f as u128) << 32) + ((g as u128) << 16) + (h as u128)),
+            // TODO: min_const_fn
+            // inner: u128::from_be_bytes([
+            //         (a >> 8) as u8, a as u8,
+            //         (b >> 8) as u8, b as u8,
+            //         (c >> 8) as u8, c as u8,
+            //         (d >> 8) as u8, d as u8,
+            //         (e >> 8) as u8, e as u8,
+            //         (f >> 8) as u8, f as u8,
+            //         (g >> 8) as u8, g as u8,
+            //         (h >> 8) as u8, h as u8
+            // ])
         }
-
     }
 
     /// An IPv6 address representing localhost: `::1`.
@@ -918,7 +863,7 @@ impl Ipv6Addr {
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn segments(&self) -> [u16; 8] {
-        let arr = &self.inner.s6_addr;
+        let arr = self.inner.to_be_bytes();
         [
             u16::from_be_bytes([arr[0], arr[1]]),
             u16::from_be_bytes([arr[2], arr[3]]),
@@ -1223,7 +1168,15 @@ impl Ipv6Addr {
     /// ```
     #[stable(feature = "ipv6_to_octets", since = "1.12.0")]
     pub const fn octets(&self) -> [u8; 16] {
-        self.inner.s6_addr
+        // TODO: min_const_fn
+        // self.inner.to_be_bytes()
+        let value = u128::from_be(self.inner);
+        [
+            (value >> 120) as u8, (value >> 112) as u8, (value >> 104) as u8, (value >> 96) as u8,
+            (value >> 88) as u8, (value >> 80) as u8, (value >> 72) as u8, (value >> 64) as u8,
+            (value >> 56) as u8, (value >> 48) as u8, (value >> 40) as u8, (value >> 32) as u8,
+            (value >> 24) as u8, (value >> 16) as u8, (value >> 8) as u8, value as u8,
+        ]
     }
 }
 
@@ -1306,18 +1259,6 @@ impl fmt::Debug for Ipv6Addr {
     }
 }
 
-#[stable(feature = "rust1", since = "1.0.0")]
-impl Clone for Ipv6Addr {
-    fn clone(&self) -> Ipv6Addr { *self }
-}
-
-#[stable(feature = "rust1", since = "1.0.0")]
-impl PartialEq for Ipv6Addr {
-    fn eq(&self, other: &Ipv6Addr) -> bool {
-        self.inner.s6_addr == other.inner.s6_addr
-    }
-}
-
 #[stable(feature = "ip_cmp", since = "1.16.0")]
 impl PartialEq<IpAddr> for Ipv6Addr {
     fn eq(&self, other: &IpAddr) -> bool {
@@ -1335,23 +1276,6 @@ impl PartialEq<Ipv6Addr> for IpAddr {
             IpAddr::V4(_) => false,
             IpAddr::V6(v6) => v6 == other,
         }
-    }
-}
-
-#[stable(feature = "rust1", since = "1.0.0")]
-impl Eq for Ipv6Addr {}
-
-#[stable(feature = "rust1", since = "1.0.0")]
-impl hash::Hash for Ipv6Addr {
-    fn hash<H: hash::Hasher>(&self, s: &mut H) {
-        self.inner.s6_addr.hash(s)
-    }
-}
-
-#[stable(feature = "rust1", since = "1.0.0")]
-impl PartialOrd for Ipv6Addr {
-    fn partial_cmp(&self, other: &Ipv6Addr) -> Option<Ordering> {
-        Some(self.cmp(other))
     }
 }
 
@@ -1375,22 +1299,6 @@ impl PartialOrd<IpAddr> for Ipv6Addr {
     }
 }
 
-#[stable(feature = "rust1", since = "1.0.0")]
-impl Ord for Ipv6Addr {
-    fn cmp(&self, other: &Ipv6Addr) -> Ordering {
-        self.segments().cmp(&other.segments())
-    }
-}
-
-impl AsInner<c::in6_addr> for Ipv6Addr {
-    fn as_inner(&self) -> &c::in6_addr { &self.inner }
-}
-impl FromInner<c::in6_addr> for Ipv6Addr {
-    fn from_inner(addr: c::in6_addr) -> Ipv6Addr {
-        Ipv6Addr { inner: addr }
-    }
-}
-
 #[stable(feature = "i128", since = "1.26.0")]
 impl From<Ipv6Addr> for u128 {
     /// Convert an `Ipv6Addr` into a host byte order `u128`.
@@ -1407,10 +1315,10 @@ impl From<Ipv6Addr> for u128 {
     /// assert_eq!(0x102030405060708090A0B0C0D0E0F00D_u128, u128::from(addr));
     /// ```
     fn from(ip: Ipv6Addr) -> u128 {
-        let ip = ip.octets();
-        u128::from_be_bytes(ip)
+        ip.inner
     }
 }
+
 #[stable(feature = "i128", since = "1.26.0")]
 impl From<u128> for Ipv6Addr {
     /// Convert a host byte order `u128` into an `Ipv6Addr`.
@@ -1429,15 +1337,14 @@ impl From<u128> for Ipv6Addr {
     ///     addr);
     /// ```
     fn from(ip: u128) -> Ipv6Addr {
-        Ipv6Addr::from(ip.to_be_bytes())
+        Ipv6Addr { inner: ip }
     }
 }
 
 #[stable(feature = "ipv6_from_octets", since = "1.9.0")]
 impl From<[u8; 16]> for Ipv6Addr {
     fn from(octets: [u8; 16]) -> Ipv6Addr {
-        let inner = c::in6_addr { s6_addr: octets };
-        Ipv6Addr::from_inner(inner)
+        Ipv6Addr { inner: u128::from_be_bytes(octets) }
     }
 }
 

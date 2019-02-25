@@ -3,8 +3,8 @@
 //! This module is "publicly exported" through the `FromStr` implementations
 //! below.
 
-use error::Error;
-use net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6, AddrParseError};
+use fmt;
+use net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use str::FromStr;
 
 struct Parser<'a> {
@@ -47,7 +47,7 @@ impl<'a> Parser<'a> {
     }
 
     // Return result of first successful parser
-    fn read_or<T>(&mut self, parsers: &mut [Box<dyn FnMut(&mut Parser) -> Option<T> + 'static>])
+    fn read_or<T>(&mut self, parsers: &mut [&mut (dyn FnMut(&mut Parser) -> Option<T> + 'static)])
                -> Option<T> {
         for pf in parsers {
             if let Some(r) = self.read_atomically(|p: &mut Parser| pf(p)) {
@@ -55,27 +55,6 @@ impl<'a> Parser<'a> {
             }
         }
         None
-    }
-
-    // Apply 3 parsers sequentially
-    fn read_seq_3<A, B, C, PA, PB, PC>(&mut self,
-                                       pa: PA,
-                                       pb: PB,
-                                       pc: PC)
-                                       -> Option<(A, B, C)> where
-        PA: FnOnce(&mut Parser) -> Option<A>,
-        PB: FnOnce(&mut Parser) -> Option<B>,
-        PC: FnOnce(&mut Parser) -> Option<C>,
-    {
-        self.read_atomically(move |p| {
-            let a = pa(p);
-            let b = if a.is_some() { pb(p) } else { None };
-            let c = if b.is_some() { pc(p) } else { None };
-            match (a, b, c) {
-                (Some(a), Some(b), Some(c)) => Some((a, b, c)),
-                _ => None
-            }
-        })
     }
 
     // Read next char
@@ -242,80 +221,85 @@ impl<'a> Parser<'a> {
         self.read_atomically(|p| p.read_ipv6_addr_impl())
     }
 
-    fn read_socket_addr_v4(&mut self) -> Option<SocketAddrV4> {
-        let ip_addr = |p: &mut Parser| p.read_ipv4_addr();
-        let colon = |p: &mut Parser| p.read_given_char(':');
-        let port = |p: &mut Parser| {
-            p.read_number(10, 5, 0x10000).map(|n| n as u16)
-        };
-
-        self.read_seq_3(ip_addr, colon, port).map(|t| {
-            let (ip, _, port): (Ipv4Addr, char, u16) = t;
-            SocketAddrV4::new(ip, port)
-        })
-    }
-
-    fn read_socket_addr_v6(&mut self) -> Option<SocketAddrV6> {
-        let ip_addr = |p: &mut Parser| {
-            let open_br = |p: &mut Parser| p.read_given_char('[');
-            let ip_addr = |p: &mut Parser| p.read_ipv6_addr();
-            let clos_br = |p: &mut Parser| p.read_given_char(']');
-            p.read_seq_3(open_br, ip_addr, clos_br).map(|t| t.1)
-        };
-        let colon = |p: &mut Parser| p.read_given_char(':');
-        let port = |p: &mut Parser| {
-            p.read_number(10, 5, 0x10000).map(|n| n as u16)
-        };
-
-        self.read_seq_3(ip_addr, colon, port).map(|t| {
-            let (ip, _, port): (Ipv6Addr, char, u16) = t;
-            SocketAddrV6::new(ip, port, 0, 0)
-        })
-    }
-
-    fn read_socket_addr(&mut self) -> Option<SocketAddr> {
-        let v4 = |p: &mut Parser| p.read_socket_addr_v4().map(SocketAddr::V4);
-        let v6 = |p: &mut Parser| p.read_socket_addr_v6().map(SocketAddr::V6);
-        self.read_or(&mut [Box::new(v4), Box::new(v6)])
+    fn read_ip_addr(&mut self) -> Option<IpAddr> {
+        let mut ipv4_addr = |p: &mut Parser| p.read_ipv4_addr().map(IpAddr::V4);
+        let mut ipv6_addr = |p: &mut Parser| p.read_ipv6_addr().map(IpAddr::V6);
+        self.read_or(&mut [&mut ipv4_addr, &mut ipv6_addr])
     }
 }
 
-#[stable(feature = "socket_addr_from_str", since = "1.5.0")]
-impl FromStr for SocketAddrV4 {
+#[stable(feature = "ip_addr", since = "1.7.0")]
+impl FromStr for IpAddr {
     type Err = AddrParseError;
-    fn from_str(s: &str) -> Result<SocketAddrV4, AddrParseError> {
-        match Parser::new(s).read_till_eof(|p| p.read_socket_addr_v4()) {
+    fn from_str(s: &str) -> Result<IpAddr, AddrParseError> {
+        match Parser::new(s).read_till_eof(|p| p.read_ip_addr()) {
             Some(s) => Ok(s),
-            None => Err(AddrParseError(())),
-        }
-    }
-}
-
-#[stable(feature = "socket_addr_from_str", since = "1.5.0")]
-impl FromStr for SocketAddrV6 {
-    type Err = AddrParseError;
-    fn from_str(s: &str) -> Result<SocketAddrV6, AddrParseError> {
-        match Parser::new(s).read_till_eof(|p| p.read_socket_addr_v6()) {
-            Some(s) => Ok(s),
-            None => Err(AddrParseError(())),
+            None => Err(AddrParseError(()))
         }
     }
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
-impl FromStr for SocketAddr {
+impl FromStr for Ipv4Addr {
     type Err = AddrParseError;
-    fn from_str(s: &str) -> Result<SocketAddr, AddrParseError> {
-        match Parser::new(s).read_till_eof(|p| p.read_socket_addr()) {
+    fn from_str(s: &str) -> Result<Ipv4Addr, AddrParseError> {
+        match Parser::new(s).read_till_eof(|p| p.read_ipv4_addr()) {
             Some(s) => Ok(s),
-            None => Err(AddrParseError(())),
+            None => Err(AddrParseError(()))
         }
     }
 }
 
+#[stable(feature = "rust1", since = "1.0.0")]
+impl FromStr for Ipv6Addr {
+    type Err = AddrParseError;
+    fn from_str(s: &str) -> Result<Ipv6Addr, AddrParseError> {
+        match Parser::new(s).read_till_eof(|p| p.read_ipv6_addr()) {
+            Some(s) => Ok(s),
+            None => Err(AddrParseError(()))
+        }
+    }
+}
+
+/// An error which can be returned when parsing an IP address or a socket address.
+///
+/// This error is used as the error type for the [`FromStr`] implementation for
+/// [`IpAddr`], [`Ipv4Addr`], [`Ipv6Addr`], [`SocketAddr`], [`SocketAddrV4`], and
+/// [`SocketAddrV6`].
+///
+/// # Potential causes
+///
+/// `AddrParseError` may be thrown because the provided string does not parse as the given type,
+/// often because it includes information only handled by a different address type.
+///
+/// ```should_panic
+/// use std::net::IpAddr;
+/// let _foo: IpAddr = "127.0.0.1:8080".parse().expect("Cannot handle the socket port");
+/// ```
+///
+/// [`IpAddr`] doesn't handle the port. Use [`SocketAddr`] instead.
+///
+/// ```
+/// use std::net::SocketAddr;
+///
+/// // No problem, the `panic!` message has disappeared.
+/// let _foo: SocketAddr = "127.0.0.1:8080".parse().expect("unreachable panic");
+/// ```
+///
+/// [`FromStr`]: ../../std/str/trait.FromStr.html
+/// [`IpAddr`]: ../../std/net/enum.IpAddr.html
+/// [`Ipv4Addr`]: ../../std/net/struct.Ipv4Addr.html
+/// [`Ipv6Addr`]: ../../std/net/struct.Ipv6Addr.html
+/// [`SocketAddr`]: ../../std/net/enum.SocketAddr.html
+/// [`SocketAddrV4`]: ../../std/net/struct.SocketAddrV4.html
+/// [`SocketAddrV6`]: ../../std/net/struct.SocketAddrV6.html
+#[stable(feature = "rust1", since = "1.0.0")]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AddrParseError(());
+
 #[stable(feature = "addr_parse_error_error", since = "1.4.0")]
-impl Error for AddrParseError {
-    fn description(&self) -> &str {
-        "invalid IP address syntax"
+impl fmt::Display for AddrParseError {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        fmt.write_str("invalid IP address syntax")
     }
 }

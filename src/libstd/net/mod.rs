@@ -31,17 +31,14 @@
 use io::{self, Error, ErrorKind};
 
 #[stable(feature = "rust1", since = "1.0.0")]
-pub use self::ip::{IpAddr, Ipv4Addr, Ipv6Addr, Ipv6MulticastScope};
+pub use core::net::{IpAddr, Ipv4Addr, Ipv6Addr, Ipv6MulticastScope, AddrParseError};
 #[stable(feature = "rust1", since = "1.0.0")]
 pub use self::addr::{SocketAddr, SocketAddrV4, SocketAddrV6, ToSocketAddrs};
 #[stable(feature = "rust1", since = "1.0.0")]
 pub use self::tcp::{TcpStream, TcpListener, Incoming};
 #[stable(feature = "rust1", since = "1.0.0")]
 pub use self::udp::UdpSocket;
-#[stable(feature = "rust1", since = "1.0.0")]
-pub use self::parser::AddrParseError;
 
-mod ip;
 mod addr;
 mod tcp;
 mod udp;
