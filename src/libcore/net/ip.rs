@@ -1170,7 +1170,7 @@ impl Ipv6Addr {
     pub const fn octets(&self) -> [u8; 16] {
         // TODO: min_const_fn
         // self.inner.to_be_bytes()
-        let value = u128::from_be(self.inner);
+        let value = self.inner.to_be();
         [
             (value >> 120) as u8, (value >> 112) as u8, (value >> 104) as u8, (value >> 96) as u8,
             (value >> 88) as u8, (value >> 80) as u8, (value >> 72) as u8, (value >> 64) as u8,

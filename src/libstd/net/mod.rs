@@ -39,6 +39,7 @@ pub use self::tcp::{TcpStream, TcpListener, Incoming};
 #[stable(feature = "rust1", since = "1.0.0")]
 pub use self::udp::UdpSocket;
 
+mod ip;
 mod addr;
 mod tcp;
 mod udp;

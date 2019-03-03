@@ -214,8 +214,8 @@ impl TcpStream {
 
         let sock = Socket::new(addr, c::SOCK_STREAM)?;
 
-        let (addrp, len) = addr.into_inner();
-        cvt_r(|| unsafe { c::connect(*sock.as_inner(), addrp, len) })?;
+        let (addr, len) = addr.into_inner();
+        cvt_r(|| unsafe { c::connect(*sock.as_inner(), &addr.sockaddr, len) })?;
         Ok(TcpStream { inner: sock })
     }
 
@@ -361,8 +361,8 @@ impl TcpListener {
         }
 
         // Bind our new socket
-        let (addrp, len) = addr.into_inner();
-        cvt(unsafe { c::bind(*sock.as_inner(), addrp, len as _) })?;
+        let (addr, len) = addr.into_inner();
+        cvt(unsafe { c::bind(*sock.as_inner(), &addr.sockaddr, len as _) })?;
 
         // Start listening
         cvt(unsafe { c::listen(*sock.as_inner(), 128) })?;
@@ -454,8 +454,8 @@ impl UdpSocket {
         init();
 
         let sock = Socket::new(addr, c::SOCK_DGRAM)?;
-        let (addrp, len) = addr.into_inner();
-        cvt(unsafe { c::bind(*sock.as_inner(), addrp, len as _) })?;
+        let (addr, len) = addr.into_inner();
+        cvt(unsafe { c::bind(*sock.as_inner(), &addr.sockaddr, len as _) })?;
         Ok(UdpSocket { inner: sock })
     }
 
@@ -479,11 +479,11 @@ impl UdpSocket {
 
     pub fn send_to(&self, buf: &[u8], dst: &SocketAddr) -> io::Result<usize> {
         let len = cmp::min(buf.len(), <wrlen_t>::max_value() as usize) as wrlen_t;
-        let (dstp, dstlen) = dst.into_inner();
+        let (dst, dstlen) = dst.into_inner();
         let ret = cvt(unsafe {
             c::sendto(*self.inner.as_inner(),
                       buf.as_ptr() as *const c_void, len,
-                      MSG_NOSIGNAL, dstp, dstlen)
+                      MSG_NOSIGNAL, &dst.sockaddr, dstlen)
         })?;
         Ok(ret as usize)
     }
@@ -617,8 +617,8 @@ impl UdpSocket {
     }
 
     pub fn connect(&self, addr: io::Result<&SocketAddr>) -> io::Result<()> {
-        let (addrp, len) = addr?.into_inner();
-        cvt_r(|| unsafe { c::connect(*self.inner.as_inner(), addrp, len) }).map(|_| ())
+        let (addr, len) = addr?.into_inner();
+        cvt_r(|| unsafe { c::connect(*self.inner.as_inner(), &addr.sockaddr, len) }).map(|_| ())
     }
 }
 

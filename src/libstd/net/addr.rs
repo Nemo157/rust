@@ -1,8 +1,6 @@
-use fmt;
-use hash;
 use io;
 use mem;
-use net::{ntoh, hton, IpAddr, Ipv4Addr, Ipv6Addr};
+use net::{hton, ntoh, IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
 use option;
 use sys::net::netc as c;
 use sys_common::{FromInner, IntoInner};
@@ -14,24 +12,52 @@ use convert::TryInto;
 
 impl FromInner<c::sockaddr_in> for SocketAddrV4 {
     fn from_inner(addr: c::sockaddr_in) -> SocketAddrV4 {
-        SocketAddrV4 { inner: addr }
+        SocketAddrV4::new(Ipv4Addr::from_inner(addr.sin_addr), ntoh(addr.sin_port))
     }
 }
 
 impl FromInner<c::sockaddr_in6> for SocketAddrV6 {
     fn from_inner(addr: c::sockaddr_in6) -> SocketAddrV6 {
-        SocketAddrV6 { inner: addr }
+        SocketAddrV6::new(
+            Ipv6Addr::from_inner(addr.sin6_addr),
+            ntoh(addr.sin6_port),
+            addr.sin6_flowinfo,
+            addr.sin6_scope_id,
+        )
     }
 }
 
-impl<'a> IntoInner<(*const c::sockaddr, c::socklen_t)> for &'a SocketAddr {
-    fn into_inner(self) -> (*const c::sockaddr, c::socklen_t) {
-        match *self {
+#[repr(C)]
+pub(crate) union sockaddrs {
+    pub(crate) sockaddr: c::sockaddr,
+    pub(crate) sockaddr_in: c::sockaddr_in,
+    pub(crate) sockaddr_in6: c::sockaddr_in6,
+}
+
+impl IntoInner<(sockaddrs, c::socklen_t)> for &SocketAddr {
+    fn into_inner(self) -> (sockaddrs, c::socklen_t) {
+        match self {
             SocketAddr::V4(ref a) => {
-                (a as *const _ as *const _, mem::size_of_val(a) as c::socklen_t)
+                (sockaddrs {
+                    sockaddr_in: c::sockaddr_in {
+                        sin_family: c::AF_INET as c::sa_family_t,
+                        sin_port: hton(a.port()),
+                        sin_addr: a.ip().into_inner(),
+                        .. unsafe { mem::zeroed() }
+                    }
+                }, mem::size_of::<c::sockaddr_in>() as u32)
             }
             SocketAddr::V6(ref a) => {
-                (a as *const _ as *const _, mem::size_of_val(a) as c::socklen_t)
+                (sockaddrs {
+                    sockaddr_in6: c::sockaddr_in6 {
+                        sin6_family: c::AF_INET6 as c::sa_family_t,
+                        sin6_port: hton(a.port()),
+                        sin6_addr: a.ip().into_inner(),
+                        sin6_flowinfo: a.flowinfo(),
+                        sin6_scope_id: a.scope_id(),
+                        .. unsafe { mem::zeroed() }
+                    }
+                }, mem::size_of::<c::sockaddr_in6>() as u32)
             }
         }
     }
