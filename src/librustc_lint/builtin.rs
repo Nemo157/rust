@@ -800,6 +800,12 @@ impl EarlyLintPass for UnusedDocComment {
 }
 
 declare_lint! {
+    NO_MANGLE,
+    Allow,
+    "declaration of `no_mangle` items"
+}
+
+declare_lint! {
     NO_MANGLE_CONST_ITEMS,
     Deny,
     "const items will not have their symbols exported"
@@ -811,13 +817,23 @@ declare_lint! {
     "generic items must be mangled"
 }
 
-declare_lint_pass!(InvalidNoMangleItems => [NO_MANGLE_CONST_ITEMS, NO_MANGLE_GENERIC_ITEMS]);
+declare_lint_pass!(InvalidNoMangleItems => [NO_MANGLE, NO_MANGLE_CONST_ITEMS, NO_MANGLE_GENERIC_ITEMS]);
 
 impl<'a, 'tcx> LateLintPass<'a, 'tcx> for InvalidNoMangleItems {
     fn check_item(&mut self, cx: &LateContext<'_, '_>, it: &hir::Item<'_>) {
         match it.kind {
+            hir::ItemKind::Static(..) => {
+                if attr::contains_name(&it.attrs, sym::no_mangle) {
+                    cx.struct_span_lint(NO_MANGLE, it.span, |lint| {
+                        lint.build("declaration of a `no_mangle` static").emit();
+                    });
+                }
+            }
             hir::ItemKind::Fn(.., ref generics, _) => {
                 if let Some(no_mangle_attr) = attr::find_by_name(&it.attrs, sym::no_mangle) {
+                    cx.struct_span_lint(NO_MANGLE, it.span, |lint| {
+                        lint.build("declaration of a `no_mangle` function").emit();
+                    });
                     for param in generics.params {
                         match param.kind {
                             GenericParamKind::Lifetime { .. } => {}
@@ -1251,6 +1267,7 @@ declare_lint_pass!(
         MISSING_DEBUG_IMPLEMENTATIONS,
         ANONYMOUS_PARAMETERS,
         UNUSED_DOC_COMMENTS,
+        NO_MANGLE,
         NO_MANGLE_CONST_ITEMS,
         NO_MANGLE_GENERIC_ITEMS,
         MUTABLE_TRANSMUTES,
