@@ -175,8 +175,9 @@ impl LintStore {
             self.lints.push(lint);
 
             let id = LintId::of(lint);
-            if self.by_name.insert(lint.name_lower(), Id(id)).is_some() {
-                bug!("duplicate specification of lint {}", lint.name_lower())
+            let new = self.by_name.insert(lint.name_lower(), Id(id)).is_none();
+            if !new || self.lint_groups.contains_key(lint.name_lower().as_str()) {
+                bug!("duplicate specification of lint {}", lint.name_lower());
             }
 
             if let Some(FutureIncompatibleInfo { edition, .. }) = lint.future_incompatible {
@@ -206,14 +207,20 @@ impl LintStore {
     }
 
     pub fn register_group_alias(&mut self, lint_name: &'static str, alias: &'static str) {
-        self.lint_groups.insert(
-            alias,
-            LintGroup {
-                lint_ids: vec![],
-                from_plugin: false,
-                depr: Some(LintAlias { name: lint_name, silent: true }),
-            },
-        );
+        let new = self
+            .lint_groups
+            .insert(
+                alias,
+                LintGroup {
+                    lint_ids: vec![],
+                    from_plugin: false,
+                    depr: Some(LintAlias { name: lint_name, silent: true }),
+                },
+            )
+            .is_none();
+        if !new || self.by_name.contains_key(alias) {
+            bug!("duplicate specification of lint group {}", alias);
+        }
     }
 
     pub fn register_group(
@@ -227,19 +234,25 @@ impl LintStore {
             .lint_groups
             .insert(name, LintGroup { lint_ids: to, from_plugin, depr: None })
             .is_none();
-        if let Some(deprecated) = deprecated_name {
-            self.lint_groups.insert(
-                deprecated,
-                LintGroup {
-                    lint_ids: vec![],
-                    from_plugin,
-                    depr: Some(LintAlias { name, silent: false }),
-                },
-            );
+        if !new || self.by_name.contains_key(name) {
+            bug!("duplicate specification of lint group {}", name);
         }
 
-        if !new {
-            bug!("duplicate specification of lint group {}", name);
+        if let Some(deprecated) = deprecated_name {
+            let new = self
+                .lint_groups
+                .insert(
+                    deprecated,
+                    LintGroup {
+                        lint_ids: vec![],
+                        from_plugin,
+                        depr: Some(LintAlias { name, silent: false }),
+                    },
+                )
+                .is_none();
+            if !new || self.by_name.contains_key(deprecated) {
+                bug!("duplicate specification of lint group {}", deprecated);
+            }
         }
     }
 
@@ -248,11 +261,20 @@ impl LintStore {
             Some(&Id(lint_id)) => lint_id,
             _ => bug!("invalid lint renaming of {} to {}", old_name, new_name),
         };
-        self.by_name.insert(old_name.to_string(), Renamed(new_name.to_string(), target));
+        let new = self
+            .by_name
+            .insert(old_name.to_string(), Renamed(new_name.to_string(), target))
+            .is_none();
+        if !new || self.lint_groups.contains_key(old_name) {
+            bug!("duplicate specification of lint {}", old_name);
+        }
     }
 
     pub fn register_removed(&mut self, name: &str, reason: &str) {
-        self.by_name.insert(name.into(), Removed(reason.into()));
+        let new = self.by_name.insert(name.into(), Removed(reason.into())).is_none();
+        if !new || self.lint_groups.contains_key(name) {
+            bug!("duplicate specification of lint {}", name);
+        }
     }
 
     pub fn find_lints(&self, mut lint_name: &str) -> Result<Vec<LintId>, FindLintError> {
