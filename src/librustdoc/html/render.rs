@@ -2956,7 +2956,7 @@ fn item_struct(w: &mut Buffer, cx: &Context, it: &clean::Item, s: &clean::Struct
         if fields.peek().is_some() {
             write!(
                 w,
-                "<h2 id='fields' class='fields small-section-header'>
+                "<div id='fields' class='fields'><h2 class='small-section-header'>
                        Fields{}<a href='#fields' class='anchor'></a></h2>",
                 document_non_exhaustive_header(it)
             );
@@ -2975,8 +2975,7 @@ fn item_struct(w: &mut Buffer, cx: &Context, it: &clean::Item, s: &clean::Struct
                 write!(
                     w,
                     "<span id=\"{id}\" class=\"{item_type} small-section-header\">\
-                           <a href=\"#{id}\" class=\"anchor field\"></a>\
-                           <code id=\"{ns_id}\">{name}: {ty}</code>\
+                           <code id=\"{ns_id}\"><a href='#{id}' class='fieldname'>{name}</a>: {ty}</code>\
                            </span>",
                     item_type = ItemType::StructField,
                     id = id,
@@ -2986,6 +2985,7 @@ fn item_struct(w: &mut Buffer, cx: &Context, it: &clean::Item, s: &clean::Struct
                 );
                 document(w, cx, field);
             }
+            write!(w, "</div>");
         }
     }
     render_assoc_items(w, cx, it, it.def_id, AssocItemRender::All)
@@ -3090,7 +3090,7 @@ fn item_enum(w: &mut Buffer, cx: &Context, it: &clean::Item, e: &clean::Enum) {
     if !e.variants.is_empty() {
         write!(
             w,
-            "<h2 id='variants' class='variants small-section-header'>
+            "<div id='variants' class='variants'><h2 class='small-section-header'>
                    Variants{}<a href='#variants' class='anchor'></a></h2>\n",
             document_non_exhaustive_header(it)
         );
@@ -3106,8 +3106,7 @@ fn item_enum(w: &mut Buffer, cx: &Context, it: &clean::Item, e: &clean::Enum) {
             write!(
                 w,
                 "<div id=\"{id}\" class=\"variant small-section-header\">\
-                       <a href=\"#{id}\" class=\"anchor field\"></a>\
-                       <code id='{ns_id}'>{name}",
+                       <code id='{ns_id}'><a href='#{id}' class='variantname'>{name}</a>",
                 id = id,
                 ns_id = ns_id,
                 name = variant.name.as_ref().unwrap()
@@ -3139,7 +3138,7 @@ fn item_enum(w: &mut Buffer, cx: &Context, it: &clean::Item, e: &clean::Enum) {
                 write!(w, "<div class='autohide sub-variant' id='{id}'>", id = variant_id);
                 write!(
                     w,
-                    "<h3>Fields of <b>{name}</b></h3><div>",
+                    "<h3>Fields of <b>{name}</b></h3>",
                     name = variant.name.as_ref().unwrap()
                 );
                 for field in &s.fields {
@@ -3160,8 +3159,7 @@ fn item_enum(w: &mut Buffer, cx: &Context, it: &clean::Item, e: &clean::Enum) {
                         write!(
                             w,
                             "<span id=\"{id}\" class=\"variant small-section-header\">\
-                                   <a href=\"#{id}\" class=\"anchor field\"></a>\
-                                   <code id='{ns_id}'>{f}:&nbsp;{t}\
+                                   <code id='{ns_id}'><a href='#{id}' class='fieldname'>{f}</a>:&nbsp;{t}\
                                    </code></span>",
                             id = id,
                             ns_id = ns_id,
@@ -3171,10 +3169,11 @@ fn item_enum(w: &mut Buffer, cx: &Context, it: &clean::Item, e: &clean::Enum) {
                         document(w, cx, field);
                     }
                 }
-                write!(w, "</div></div>");
+                write!(w, "</div>");
             }
             render_stability_since(w, variant, it);
         }
+        write!(w, "</div>");
     }
     render_assoc_items(w, cx, it, it.def_id, AssocItemRender::All)
 }

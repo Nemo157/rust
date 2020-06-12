@@ -2185,26 +2185,31 @@ function getSearchElement() {
         var action = mode;
         if (hasClass(toggle.parentNode, "impl") === false) {
             relatedDoc = toggle.parentNode.nextElementSibling;
-            if (hasClass(relatedDoc, "stability")) {
-                relatedDoc = relatedDoc.nextElementSibling;
-            }
-            if (hasClass(relatedDoc, "docblock") || hasClass(relatedDoc, "sub-variant")) {
-                if (mode === "toggle") {
-                    if (hasClass(relatedDoc, "hidden-by-usual-hider")) {
-                        action = "show";
-                    } else {
-                        action = "hide";
+            while (relatedDoc) {
+                if (hasClass(relatedDoc, "stability")) {
+                    relatedDoc = relatedDoc.nextElementSibling;
+                }
+                if (hasClass(relatedDoc, "docblock") || hasClass(relatedDoc, "sub-variant")) {
+                    if (mode === "toggle") {
+                        if (hasClass(relatedDoc, "hidden-by-usual-hider")) {
+                            action = "show";
+                        } else {
+                            action = "hide";
+                        }
                     }
+                    if (action === "hide") {
+                        addClass(relatedDoc, "hidden-by-usual-hider");
+                        onEachLazy(toggle.childNodes, adjustToggle(true));
+                        addClass(toggle.parentNode, "collapsed");
+                    } else if (action === "show") {
+                        removeClass(relatedDoc, "hidden-by-usual-hider");
+                        removeClass(toggle.parentNode, "collapsed");
+                        onEachLazy(toggle.childNodes, adjustToggle(false));
+                    }
+                } else {
+                  return;
                 }
-                if (action === "hide") {
-                    addClass(relatedDoc, "hidden-by-usual-hider");
-                    onEachLazy(toggle.childNodes, adjustToggle(true));
-                    addClass(toggle.parentNode, "collapsed");
-                } else if (action === "show") {
-                    removeClass(relatedDoc, "hidden-by-usual-hider");
-                    removeClass(toggle.parentNode, "collapsed");
-                    onEachLazy(toggle.childNodes, adjustToggle(false));
-                }
+                relatedDoc = relatedDoc.nextElementSibling;
             }
         } else {
             // we are collapsing the impl block(s).
@@ -2335,6 +2340,8 @@ function getSearchElement() {
 
     onEachLazy(document.getElementsByClassName("method"), func);
     onEachLazy(document.getElementsByClassName("associatedconstant"), func);
+    onEachLazy(document.getElementsByClassName("variant"), func);
+    onEachLazy(document.getElementsByClassName("structfield"), func);
     onEachLazy(document.getElementsByClassName("impl"), funcImpl);
     var impl_call = function() {};
     if (hideMethodDocs === true) {
@@ -2437,7 +2444,7 @@ function getSearchElement() {
         currentType = currentType.getElementsByClassName("rust")[0];
         if (currentType) {
             currentType.classList.forEach(function(item) {
-                if (item !== "main") {
+                if (item !== "rust") {
                     className = item;
                     return true;
                 }
@@ -2476,7 +2483,7 @@ function getSearchElement() {
                 });
             }
         }
-        if (e.parentNode.id === "main") {
+        if (e.parentNode.id === "main" || hasClass(e, "non-exhaustive")) {
             var otherMessage = "";
             var fontSize;
             var extraClass;
@@ -2484,11 +2491,7 @@ function getSearchElement() {
             if (hasClass(e, "type-decl")) {
                 fontSize = "20px";
                 otherMessage = "&nbsp;Show&nbsp;declaration";
-                if (showItemDeclarations === false) {
-                    extraClass = "collapsed";
-                }
-            } else if (hasClass(e, "sub-variant")) {
-                otherMessage = "&nbsp;Show&nbsp;fields";
+                extraClass = "collapsed";
             } else if (hasClass(e, "non-exhaustive")) {
                 otherMessage = "&nbsp;This&nbsp;";
                 if (hasClass(e, "non-exhaustive-struct")) {
@@ -2509,19 +2512,22 @@ function getSearchElement() {
                 createToggle(otherMessage,
                              fontSize,
                              extraClass,
-                             hasClass(e, "type-decl") === false || showItemDeclarations === true),
+                             hasClass(e, "type-decl") === false),
                 e);
-            if (hasClass(e, "type-decl") === true && showItemDeclarations === true) {
-                collapseDocs(e.previousSibling.childNodes[0], "toggle");
-            }
-            if (hasClass(e, "non-exhaustive") === true) {
-                collapseDocs(e.previousSibling.childNodes[0], "toggle");
-            }
         }
     }
 
     onEachLazy(document.getElementsByClassName("docblock"), buildToggleWrapper);
-    onEachLazy(document.getElementsByClassName("sub-variant"), buildToggleWrapper);
+
+    if (showItemDeclarations) {
+        onEachLazy(document.getElementsByClassName("type-decl"), function(e) {
+            collapseDocs(e.previousSibling.childNodes[0], "show");
+        });
+    }
+    onEachLazy(document.getElementsByClassName("non-exhaustive"), function(e) {
+        collapseDocs(e.previousSibling.childNodes[0], "hide");
+    });
+
 
     function createToggleWrapper(tog) {
         var span = document.createElement("span");

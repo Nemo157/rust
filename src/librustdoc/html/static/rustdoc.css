@@ -932,7 +932,10 @@ a.test-arrow:hover{
 	top: 0;
 }
 
-h3 > .collapse-toggle, h4 > .collapse-toggle {
+h3 > .collapse-toggle,
+h4 > .collapse-toggle,
+.variant > .collapse-toggle,
+.structfield > .collapse-toggle {
 	font-size: 0.8em;
 	top: 5px;
 }
@@ -988,13 +991,16 @@ h3 > .collapse-toggle, h4 > .collapse-toggle {
 	margin-top: 5px;
 }
 
+.sub-variant {
+	margin-left: 20px;
+}
+
 .sub-variant, .sub-variant > h3 {
 	margin-top: 1px !important;
 }
 
-#main > .sub-variant > h3 {
+.sub-variant > h3 {
 	font-size: 15px;
-	margin-left: 25px;
 	margin-bottom: 5px;
 }
 
@@ -1033,8 +1039,10 @@ h3 > .collapse-toggle, h4 > .collapse-toggle {
 	margin-bottom: 25px;
 }
 
-#main > .variant, #main > .structfield {
+.variant, .structfield {
 	display: block;
+	margin-left: 20px;
+	position: relative;
 }
 
 .attributes {
