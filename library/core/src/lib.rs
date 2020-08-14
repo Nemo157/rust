@@ -149,6 +149,11 @@
 #![feature(external_doc)]
 #![feature(associated_type_bounds)]
 #![feature(const_caller_location)]
+#![feature(const_raw_ptr_deref)]
+#![feature(const_str_from_utf8)]
+#![feature(const_ptr_align_offset)]
+#![feature(const_raw_ptr_to_usize_cast)]
+#![feature(const_cttz)]
 #![feature(slice_ptr_get)]
 #![feature(no_niche)] // rust-lang/rust#68303
 #![feature(unsafe_block_in_unsafe_fn)]

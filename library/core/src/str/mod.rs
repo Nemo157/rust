@@ -336,10 +336,15 @@ impl Utf8Error {
 /// assert_eq!("💖", sparkle_heart);
 /// ```
 #[stable(feature = "rust1", since = "1.0.0")]
-pub fn from_utf8(v: &[u8]) -> Result<&str, Utf8Error> {
-    run_utf8_validation(v)?;
-    // SAFETY: Just ran validation.
-    Ok(unsafe { from_utf8_unchecked(v) })
+#[rustc_const_unstable(feature = "const_str_from_utf8", issue = "none")]
+pub const fn from_utf8(v: &[u8]) -> Result<&str, Utf8Error> {
+    match run_utf8_validation(v) {
+        Ok(()) => {
+            // SAFETY: Just ran validation.
+            Ok(unsafe { from_utf8_unchecked(v) })
+        }
+        Err(e) => Err(e)
+    }
 }
 
 /// Converts a mutable slice of bytes to a mutable string slice.
@@ -414,7 +419,8 @@ pub fn from_utf8_mut(v: &mut [u8]) -> Result<&mut str, Utf8Error> {
 /// ```
 #[inline]
 #[stable(feature = "rust1", since = "1.0.0")]
-pub unsafe fn from_utf8_unchecked(v: &[u8]) -> &str {
+#[rustc_const_unstable(feature = "const_str_from_utf8", issue = "none")]
+pub const unsafe fn from_utf8_unchecked(v: &[u8]) -> &str {
     // SAFETY: the caller must guarantee that the bytes `v`
     // are valid UTF-8, thus the cast to `*const str` is safe.
     // Also, the pointer dereference is safe because that pointer
@@ -1555,14 +1561,15 @@ const NONASCII_MASK: usize = 0x80808080_80808080u64 as usize;
 
 /// Returns `true` if any byte in the word `x` is nonascii (>= 128).
 #[inline]
-fn contains_nonascii(x: usize) -> bool {
+const fn contains_nonascii(x: usize) -> bool {
     (x & NONASCII_MASK) != 0
 }
 
 /// Walks through `v` checking that it's a valid UTF-8 sequence,
 /// returning `Ok(())` in that case, or, if it is invalid, `Err(err)`.
 #[inline(always)]
-fn run_utf8_validation(v: &[u8]) -> Result<(), Utf8Error> {
+#[rustc_const_unstable(feature = "const_str_from_utf8", issue = "none")]
+const fn run_utf8_validation(v: &[u8]) -> Result<(), Utf8Error> {
     let mut index = 0;
     let len = v.len();
 
@@ -1680,7 +1687,7 @@ fn run_utf8_validation(v: &[u8]) -> Result<(), Utf8Error> {
 }
 
 // https://tools.ietf.org/html/rfc3629
-static UTF8_CHAR_WIDTH: [u8; 256] = [
+const UTF8_CHAR_WIDTH: [u8; 256] = [
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     1, // 0x1F
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,

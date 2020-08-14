@@ -1266,6 +1266,7 @@ impl CStr {
     /// assert!(cstr.is_err());
     /// ```
     #[stable(feature = "cstr_from_bytes", since = "1.10.0")]
+    #[rustc_const_unstable(feature = "const_cstr_unchecked", issue = "none")]
     pub fn from_bytes_with_nul(bytes: &[u8]) -> Result<&CStr, FromBytesWithNulError> {
         let nul_pos = memchr::memchr(0, bytes);
         if let Some(nul_pos) = nul_pos {

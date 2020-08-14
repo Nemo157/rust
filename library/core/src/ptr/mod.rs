@@ -1165,7 +1165,8 @@ pub unsafe fn write_volatile<T>(dst: *mut T, src: T) {
 ///
 /// Any questions go to @nagisa.
 #[lang = "align_offset"]
-pub(crate) unsafe fn align_offset<T: Sized>(p: *const T, a: usize) -> usize {
+#[rustc_const_unstable(feature = "const_ptr_align_offset", issue = "none")]
+pub(crate) const unsafe fn align_offset<T: Sized>(p: *const T, a: usize) -> usize {
     /// Calculate multiplicative modular inverse of `x` modulo `m`.
     ///
     /// This implementation is tailored for align_offset and has following preconditions:
@@ -1175,7 +1176,7 @@ pub(crate) unsafe fn align_offset<T: Sized>(p: *const T, a: usize) -> usize {
     ///
     /// Implementation of this function shall not panic. Ever.
     #[inline]
-    fn mod_inv(x: usize, m: usize) -> usize {
+    const fn mod_inv(x: usize, m: usize) -> usize {
         /// Multiplicative modular inverse table modulo 2⁴ = 16.
         ///
         /// Note, that this table does not contain values where inverse does not exist (i.e., for
@@ -1215,7 +1216,7 @@ pub(crate) unsafe fn align_offset<T: Sized>(p: *const T, a: usize) -> usize {
 
     let stride = mem::size_of::<T>();
     let a_minus_one = a.wrapping_sub(1);
-    let pmoda = p as usize & a_minus_one;
+    let pmoda = unsafe { p as usize } & a_minus_one;
 
     if pmoda == 0 {
         // Already aligned. Yay!
@@ -1234,10 +1235,16 @@ pub(crate) unsafe fn align_offset<T: Sized>(p: *const T, a: usize) -> usize {
 
     let smoda = stride & a_minus_one;
     // SAFETY: a is power-of-two so cannot be 0. stride = 0 is handled above.
-    let gcdpow = unsafe { intrinsics::cttz_nonzero(stride).min(intrinsics::cttz_nonzero(a)) };
+    let gcdpow = unsafe {
+        if intrinsics::cttz_nonzero(stride) < intrinsics::cttz_nonzero(a) {
+            intrinsics::cttz_nonzero(stride) 
+        } else {
+            intrinsics::cttz_nonzero(a) 
+        }
+    };
     let gcd = 1usize << gcdpow;
 
-    if p as usize & (gcd.wrapping_sub(1)) == 0 {
+    if unsafe { p as usize } & (gcd.wrapping_sub(1)) == 0 {
         // This branch solves for the following linear congruence equation:
         //
         // ` p + so = 0 mod a `
